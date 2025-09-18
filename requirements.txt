@@ -1,0 +1,22 @@
+pyod
+# rtdl
+scikit-learn
+torch
+keras
+tensorflow
+delu
+lightgbm
+xgboost
+catboost 
+copulas
+combo
+barbar
+fsspec
+tqdm
+wget
+numpy
+scipy
+joblib
+tqdm
+faiss-gpu-cu12
+umap-learn

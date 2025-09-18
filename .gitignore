@@ -1,0 +1,11 @@
+__pycache__/
+.cache/
+.pytest_cache
+__pycache__
+.idea/
+.vscode/
+anomaly/
+*.egg-info/
+adbench/result/*
+datasets_files_name*.json
+adbench/datasets/*
