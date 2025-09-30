@@ -9,3 +9,5 @@ anomaly/
 adbench/result/*
 datasets_files_name*.json
 adbench/datasets/*
+*.svg
+*.png

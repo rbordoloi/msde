@@ -99,7 +99,7 @@ def get_empirical_weights(
         tree = cKDTree(sim)
         max_dist, min_dist = max_min_distances_kdtree(sim)
         if nbd_sample_count_threshold >= len(X_batch):
-            print(f"[Warning] Threshold {nbd_sample_count_threshold} exceeds batch size {len(X_batch)}. Adjusting...")
+            # print(f"[Warning] Threshold {nbd_sample_count_threshold} exceeds batch size {len(X_batch)}. Adjusting...")
             threshold = max(1, len(X_batch) - 1)
         else:
             threshold = nbd_sample_count_threshold
@@ -116,7 +116,7 @@ def get_empirical_weights(
         )
 
         if eps is None:
-            print(f"[Warning] Binary search failed (batch size {len(X_batch)}). Trying relaxed condition...")
+            # print(f"[Warning] Binary search failed (batch size {len(X_batch)}). Trying relaxed condition...")
             relaxed_thresh = max(1, threshold // 2)
             relaxed_prop = effective_required // 2
             eps = binary_search_condition(
@@ -129,7 +129,7 @@ def get_empirical_weights(
             )
 
         if eps is None:
-            print("[Warning] Relaxed binary search also failed. Using max_dist as fallback.")
+            # print("[Warning] Relaxed binary search also failed. Using max_dist as fallback.")
             eps = max_dist
 
         delta = (eps - 1e-6) / max_iters_weight_count
@@ -144,16 +144,17 @@ def get_empirical_weights(
         return np.mean(all_counts, axis=0)
 
     if len(X) <= 3 * n_neighbors:
-        print('Using full-data UMAP similarity (small dataset).')
+        # print('Using full-data UMAP similarity (small dataset).')
         sim = umap_graph_similarity(X)
         return compute_weights_from_similarity(sim, X)
 
-    print('Using batched UMAP similarity (large dataset).')
+    # print('Using batched UMAP similarity (large dataset).')
     effective_batch_size = min(batch_size, max(n_neighbors * 3, 100))
     total_batches = (len(X) + effective_batch_size - 1) // effective_batch_size
     weights_all = []
 
-    for batch_idx in tqdm(range(total_batches), desc="Calculating empirical weights"):
+    # for batch_idx in tqdm(range(total_batches), desc="Calculating empirical weights"):
+    for batch_idx in range(total_batches):
         start = batch_idx * effective_batch_size
         end = min(len(X), start + effective_batch_size)
         #print(f'Processing batch {batch_idx + 1}/{total_batches}')
@@ -186,7 +187,7 @@ def shift_data_torch(X, indices, weights, learning_rate):
     return revised_d.cpu().numpy(), change.cpu().numpy()
 
 def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold, return_weights=False):
-    print('Generating tree and calculating sample weights...')
+    # print('Generating tree and calculating sample weights...')
     weights = get_empirical_weights(
         X,
         nbd_sample_count_threshold=nbd_sample_count_threshold,
@@ -195,17 +196,18 @@ def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_sh
         batch_size=1000
     )
 
-    print('Shifting data...')
+    # print('Shifting data...')
     n_samples = len(X)
     shifted_dataset = X.copy()
     index = faiss.IndexFlatL2(X.shape[1])
     index.add(X.astype(np.float32))
 
     for iter_count in range(max_iters_shift):
-        print(f'Iteration {iter_count + 1}/{max_iters_shift}')
+        # print(f'Iteration {iter_count + 1}/{max_iters_shift}')
         changes = []
 
-        for start in tqdm(range(0, n_samples, X.shape[0])):
+        # for start in tqdm(range(0, n_samples, X.shape[0])):
+        for start in range(0, n_samples, X.shape[0]):
             end = min(start + X.shape[0], n_samples)
             d = shifted_dataset[start:end]
             _, indices = index.search(d.astype(np.float32), k)
@@ -214,9 +216,9 @@ def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_sh
             changes.extend(change.tolist())
 
         avg_change = np.mean(changes)
-        print(f'Average change: {avg_change:.6f}')
+        # print(f'Average change: {avg_change:.6f}')
         if avg_change < shift_threshold:
-            print('Converged!')
+            # print('Converged!')
             break
 
     return (shifted_dataset, weights) if return_weights else shifted_dataset
@@ -250,17 +252,17 @@ class MSML:
         
         dataMSML = mean_shift_manifold_learning(X, self.k, self.nbd_sample_count_threshold, self.learning_rate, self.max_iters_shift, self.shift_threshold)
         dataMSMLShifts = np.linalg.norm(X - dataMSML, axis=1).squeeze()
-        dataMSMLShifts = self.scaler.fit_transform(dataMSMLShifts.reshape(-1, 1))
+        # dataMSMLShifts = self.scaler.fit_transform(dataMSMLShifts.reshape(-1, 1))
 
-        return expit(dataMSMLShifts).squeeze()
+        return dataMSMLShifts.squeeze()
 
 if __name__ == "__main__":
 
     utils = Utils()
     utils.download_datasets()
 
-    pipeline = RunPipeline(suffix='ADBench', parallel='unsupervise')
+    pipeline = RunPipeline(suffix='ADBench', parallel='unsupervise', realistic_synthetic_mode='dependency', noise_type='irrelevant_features')
     results = pipeline.run(clf=MSML)
-    pd.DataFrame(results).to_csv('adbench/result/MSML.csv', index=False)
+    pd.DataFrame(results).to_csv('adbench/result/MSML2.csv', index=False)
     results2 = pipeline.run()
-    pd.DataFrame(results2).to_csv('adbench/result/benchmarks.csv', index=False)
+    pd.DataFrame(results2).to_csv('adbench/result/benchmarks2.csv', index=False)
