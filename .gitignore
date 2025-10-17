@@ -11,3 +11,4 @@ datasets_files_name*.json
 adbench/datasets/*
 *.svg
 *.png
+venv/
