@@ -9,7 +9,7 @@ import umap
 from umap.umap_ import fuzzy_simplicial_set, nearest_neighbors
 from scipy.sparse import csr_matrix
 from sklearn.neighbors import NearestNeighbors
-import faiss  # For approximate nearest neighbor search
+import fai6ss  # For approximate nearest neighbor search
 from sklearn.preprocessing import StandardScaler
 from scipy.special import expit
 from adbench.myutils import Utils
@@ -250,9 +250,13 @@ class MSML:
 
     def predict_score(self, X):
         
+        
         dataMSML = mean_shift_manifold_learning(X, self.k, self.nbd_sample_count_threshold, self.learning_rate, self.max_iters_shift, self.shift_threshold)
         dataMSMLShifts = np.linalg.norm(X - dataMSML, axis=1).squeeze()
-        # dataMSMLShifts = self.scaler.fit_transform(dataMSMLShifts.reshape(-1, 1))
+        dataMSMLShifts = self.scaler.fit_transform(dataMSMLShifts.reshape(-1, 1))
+
+        # Apply sigmoid function
+        dataMSMLShifts = expit(dataMSMLShifts)
 
         return dataMSMLShifts.squeeze()
 
