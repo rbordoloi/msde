@@ -199,6 +199,8 @@ def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_sh
     # print('Shifting data...')
     n_samples = len(X)
     shifted_dataset = X.copy()
+    total_distance = np.zeros(n_samples)  # <-- Track total distance travelled per point
+
     index = faiss.IndexFlatL2(X.shape[1])
     index.add(X.astype(np.float32))
 
@@ -212,6 +214,10 @@ def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_sh
             d = shifted_dataset[start:end]
             _, indices = index.search(d.astype(np.float32), k)
             revised_d, change = shift_data_torch(shifted_dataset, indices, weights, learning_rate)
+
+            # accumulate total distance travelled per point
+            total_distance[start:end] += change
+
             shifted_dataset[start:end] = revised_d
             changes.extend(change.tolist())
 
@@ -221,15 +227,30 @@ def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_sh
             # print('Converged!')
             break
 
-    return (shifted_dataset, weights) if return_weights else shifted_dataset
+    #return (shifted_dataset, weights) if return_weights else shifted_dataset
+    if return_weights:
+        return shifted_dataset, weights, total_distance
+    else:
+        return shifted_dataset, total_distance
 
 def mean_shift_manifold_learning(X, k=30, nbd_sample_count_threshold=30, learning_rate=.3, max_iters_shift=10, shift_threshold=0.0001, return_weights=False):
-    if return_weights==False:
-        data_shifted = get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold)
-    else:
-        data_shifted, weights = get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold, return_weights=True)
+    # if return_weights==False:
+    #     data_shifted = get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold)
+    # else:
+    #     data_shifted, weights = get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold, return_weights=True)
 
-    return data_shifted if not return_weights else (data_shifted, weights)
+    # return data_shifted if not return_weights else (data_shifted, weights)
+
+    if not return_weights:
+        data_shifted, total_distance = get_shift_fast(
+            X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold
+        )
+        return data_shifted, total_distance
+    else:
+        data_shifted, weights, total_distance = get_shift_fast(
+            X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold, return_weights=True
+        )
+        return data_shifted, weights, total_distance
 
 class MSML:
     def __init__(self, seed: int, model_name: str = 'MSML', k=30, nbd_sample_count_threshold=30, learning_rate=.3, max_iters_shift=10, shift_threshold=0.0001, anomalyThreshold=0.05, scaler=StandardScaler()):
@@ -252,13 +273,18 @@ class MSML:
         
         
         dataMSML = mean_shift_manifold_learning(X, self.k, self.nbd_sample_count_threshold, self.learning_rate, self.max_iters_shift, self.shift_threshold)
-        dataMSMLShifts = np.linalg.norm(X - dataMSML, axis=1).squeeze()
-        dataMSMLShifts = self.scaler.fit_transform(dataMSMLShifts.reshape(-1, 1))
+        # dataMSMLShifts = np.linalg.norm(X - dataMSML, axis=1).squeeze()
 
-        # Apply sigmoid function
-        dataMSMLShifts = expit(dataMSMLShifts)
+        # dataMSMLShifts = self.scaler.fit_transform(dataMSMLShifts.reshape(-1, 1))
 
-        return dataMSMLShifts.squeeze()
+        # Scale and apply sigmoid
+        total_distance = self.scaler.fit_transform(total_distance.reshape(-1, 1))
+        total_distance = expit(total_distance)
+        return total_distance.squeeze()
+    
+        # return dataMSMLShifts.squeeze()
+    
+    
 
 if __name__ == "__main__":
 
