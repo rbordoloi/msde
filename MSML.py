@@ -9,7 +9,7 @@ import umap
 from umap.umap_ import fuzzy_simplicial_set, nearest_neighbors
 from scipy.sparse import csr_matrix
 from sklearn.neighbors import NearestNeighbors
-import fai6ss  # For approximate nearest neighbor search
+import faiss  # For approximate nearest neighbor search
 from sklearn.preprocessing import StandardScaler
 from scipy.special import expit
 from adbench.myutils import Utils
@@ -271,8 +271,15 @@ class MSML:
 
     def predict_score(self, X):
         
-        
-        dataMSML = mean_shift_manifold_learning(X, self.k, self.nbd_sample_count_threshold, self.learning_rate, self.max_iters_shift, self.shift_threshold)
+        data_shifted, total_distance = mean_shift_manifold_learning(
+        X, 
+        self.k, 
+        self.nbd_sample_count_threshold, 
+        self.learning_rate, 
+        self.max_iters_shift, 
+        self.shift_threshold
+    )
+        # dataMSML = mean_shift_manifold_learning(X, self.k, self.nbd_sample_count_threshold, self.learning_rate, self.max_iters_shift, self.shift_threshold)
         # dataMSMLShifts = np.linalg.norm(X - dataMSML, axis=1).squeeze()
 
         # dataMSMLShifts = self.scaler.fit_transform(dataMSMLShifts.reshape(-1, 1))
@@ -284,6 +291,13 @@ class MSML:
     
         # return dataMSMLShifts.squeeze()
     
+    def predict(self, X):
+        """Return anomaly scores (same as predict_score)."""
+        return self.predict_score(X)
+
+    def __call__(self, X):
+        """Allow model(X) syntax (used by ADBench pipeline)."""
+        return self.predict_score(X)
     
 
 if __name__ == "__main__":
