@@ -307,6 +307,6 @@ if __name__ == "__main__":
 
     pipeline = RunPipeline(suffix='ADBench', parallel='unsupervise', realistic_synthetic_mode='dependency', noise_type='irrelevant_features')
     results = pipeline.run(clf=MSML)
-    pd.DataFrame(results).to_csv('adbench/result/MSML2.csv', index=False)
+    pd.DataFrame(results).to_csv('adbench/result/MSML3.csv', index=False)
     results2 = pipeline.run()
-    pd.DataFrame(results2).to_csv('adbench/result/benchmarks2.csv', index=False)
+    pd.DataFrame(results2).to_csv('adbench/result/benchmarks3.csv', index=False)
