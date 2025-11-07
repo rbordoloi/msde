@@ -253,7 +253,7 @@ def mean_shift_manifold_learning(X, k=30, nbd_sample_count_threshold=30, learnin
         return data_shifted, weights, total_distance
 
 class MSML:
-    def __init__(self, seed: int, model_name: str = 'MSML', k=30, nbd_sample_count_threshold=30, learning_rate=.3, max_iters_shift=10, shift_threshold=0.0001, anomalyThreshold=0.05, scaler=StandardScaler()):
+    def __init__(self, seed: int, model_name: str = 'MSML', k=12, nbd_sample_count_threshold=70, learning_rate=.1, max_iters_shift=6, shift_threshold=0.003, anomalyThreshold=0.22, scaler=StandardScaler()):
         self.k = k
         self.nbd_sample_count_threshold = nbd_sample_count_threshold
         self.learning_rate = learning_rate
@@ -291,13 +291,13 @@ class MSML:
     
         # return dataMSMLShifts.squeeze()
     
-    def predict(self, X):
-        """Return anomaly scores (same as predict_score)."""
-        return self.predict_score(X)
+    # def predict(self, X):
+    #     """Return anomaly scores (same as predict_score)."""
+    #     return self.predict_score(X)
 
-    def __call__(self, X):
-        """Allow model(X) syntax (used by ADBench pipeline)."""
-        return self.predict_score(X)
+    # def __call__(self, X):
+    #     """Allow model(X) syntax (used by ADBench pipeline)."""
+    #     return self.predict_score(X)
     
 
 if __name__ == "__main__":
