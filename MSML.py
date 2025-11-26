@@ -1,20 +1,15 @@
 import numpy as np
-import torch
-from sklearn.manifold import MDS
-from scipy.spatial import KDTree, cKDTree
-from tqdm import tqdm
-from joblib import Parallel, delayed
-from scipy.spatial.distance import cdist
-import umap
+from scipy.spatial import cKDTree
 from umap.umap_ import fuzzy_simplicial_set, nearest_neighbors
 from scipy.sparse import csr_matrix
-from sklearn.neighbors import NearestNeighbors
-import faiss  # For approximate nearest neighbor search
+# import faiss  # For approximate nearest neighbor search
+from pynndescent import NNDescent
 from sklearn.preprocessing import StandardScaler
 from scipy.special import expit
 from adbench.myutils import Utils
 from adbench.run import RunPipeline
 import pandas as pd
+from numba import njit, prange
 
 
 
@@ -28,8 +23,8 @@ def find_k_nearest_neighbors(X, tree, query_point, k):
     return distances, indices
 
 def max_min_distances_kdtree(X):
-    tree = cKDTree(X)
-    distances, _ = tree.query(X, k=len(X), p=2)
+    index = NNDescent(X, n_neighbors=X.shape[0])
+    _, distances = index.neighbor_graph
     all_distances = distances[:, 1:].flatten()
     max_distance = np.max(all_distances)
     min_distance = np.min(all_distances)
@@ -165,26 +160,26 @@ def get_empirical_weights(
 
     return np.concatenate(weights_all)
 
-def shift_data_torch(X, indices, weights, learning_rate):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+@njit(fastmath=True, parallel=True)
+def shift_data(X, indices, weights, learning_rate):
 
-    X_t = torch.from_numpy(X).float().to(device)
-    indices_t = torch.from_numpy(indices).long().to(device)
-    weights_t = torch.from_numpy(weights).float().to(device)
+    # batch_size, k = indices.shape
+    # batch_indices = torch.arange(batch_size, device=device).unsqueeze(1).expand(-1, k)
 
-    batch_size, k = indices_t.shape
-    batch_indices = torch.arange(batch_size, device=device).unsqueeze(1).expand(-1, k)
+    indicesShape = indices.shape
+    data_nebs = X[indices.ravel()].reshape(indicesShape[0], indicesShape[1], X.shape[1])
+    weights_nebs = weights[indices.ravel()].reshape(indicesShape[0], indicesShape[1])
+    weights_nebs = weights_nebs / (weights_nebs.sum(axis=1).reshape(-1, 1) + 1e-6)
 
-    data_nebs = X_t[indices_t]
-    weights_nebs = weights_t[indices_t]
-    weights_nebs = weights_nebs / (weights_nebs.sum(dim=1, keepdim=True) + 1e-6)
+    new_d = (weights_nebs.reshape(-1, weights_nebs.shape[1], 1) * data_nebs).sum(axis=1)
+    change = np.zeros(X.shape[0])
+    for i in prange(X.shape[0]):
+        change[i] = np.linalg.norm(X[i] - new_d[i])
+    # change = np.linalg.norm(X - new_d, axis=1)
+    unit_vec = (new_d - X) / (change.reshape(-1, 1) + 1e-6)
+    revised_d = X + learning_rate * change.reshape(-1, 1) * unit_vec
 
-    new_d = torch.sum(weights_nebs.unsqueeze(2) * data_nebs, dim=1)
-    change = torch.norm(X_t - new_d, dim=1)
-    unit_vec = (new_d - X_t) / (change.unsqueeze(1) + 1e-6)
-    revised_d = X_t + learning_rate * change.unsqueeze(1) * unit_vec
-
-    return revised_d.cpu().numpy(), change.cpu().numpy()
+    return revised_d, change
 
 def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_shift, shift_threshold, return_weights=False):
     # print('Generating tree and calculating sample weights...')
@@ -197,31 +192,29 @@ def get_shift_fast(X, k, nbd_sample_count_threshold, learning_rate, max_iters_sh
     )
 
     # print('Shifting data...')
-    n_samples = len(X)
+    n_samples = X.shape[0]
     shifted_dataset = X.copy()
     total_distance = np.zeros(n_samples)  # <-- Track total distance travelled per point
 
-    index = faiss.IndexFlatL2(X.shape[1])
-    index.add(X.astype(np.float32))
+    # index = faiss.IndexFlatL2(X.shape[1])
+    # index.add(X.astype(np.float32))
+    index = NNDescent(X)
 
     for iter_count in range(max_iters_shift):
         # print(f'Iteration {iter_count + 1}/{max_iters_shift}')
-        changes = []
-
+        # changes = torch.zeros(n_samples, device=device)
+        
         # for start in tqdm(range(0, n_samples, X.shape[0])):
-        for start in range(0, n_samples, X.shape[0]):
-            end = min(start + X.shape[0], n_samples)
-            d = shifted_dataset[start:end]
-            _, indices = index.search(d.astype(np.float32), k)
-            revised_d, change = shift_data_torch(shifted_dataset, indices, weights, learning_rate)
+        indices, _ = index.query(shifted_dataset, k)
+        revised_d, change = shift_data(shifted_dataset, indices, weights, learning_rate)
 
-            # accumulate total distance travelled per point
-            total_distance[start:end] += change
+        # accumulate total distance travelled per point
+        total_distance += change
 
-            shifted_dataset[start:end] = revised_d
-            changes.extend(change.tolist())
+        shifted_dataset = revised_d
+        # changes.extend(change.tolist())
 
-        avg_change = np.mean(changes)
+        avg_change = change.mean()
         # print(f'Average change: {avg_change:.6f}')
         if avg_change < shift_threshold:
             # print('Converged!')
