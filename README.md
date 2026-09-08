@@ -1,4 +1,4 @@
-# Anomaly Detection by Mean Shift Density Enhancement (MSDE)
+# Anomaly Detection via Mean Shift Density Enhancement (MSDE)
 
 Official implementation of **Mean Shift Density Enhancement (MSDE)**, a fully unsupervised anomaly detection framework based on density-driven manifold evolution.
 
