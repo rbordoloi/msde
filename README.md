@@ -40,11 +40,12 @@ If you use MSDE or this code in your research, please cite our paper published i
 
 ```bibtex
 @article{kar2026anomaly,
-  title={Anomaly Detection by Mean Shift Density Enhancement},
+  title={Anomaly detection via mean shift density enhancement},
   author={Kar, Pritam and Bordoloi, Rahul and Wolkenhauer, Olaf and Bej, Saptarshi},
   journal={Data Mining and Knowledge Discovery},
   volume={40},
-  article={77},
+  number={5},
+  articleno={77},
   year={2026},
   publisher={Springer},
   doi={10.1007/s10618-026-01244-5}
