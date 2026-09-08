@@ -28,3 +28,8 @@ A Python environment using **Python 3.12** is recommended.
    ```bash
    conda create -n msde python=3.12
    conda activate msde
+## Usage
+
+**To run the standalone MSDE implementation:**
+```bash
+python MSDE_implementation.py
